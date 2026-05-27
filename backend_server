@@ -1,0 +1,48 @@
+import paho.mqtt.client as mqtt
+import datetime
+import ssl
+
+# 1. Cloud Broker Settings
+broker = "REPLACE_WITH_YOUR_EXACT_HIVEMQ_URL" # Just the raw domain name
+port = 8883 
+user = "farm_admin"
+password = "SecurePassword123"
+topic = "home/living_room/light_1/command"
+
+# 2. Callback: When the backend connects
+def on_connect(client, userdata, flags, reason_code, properties):
+    # Notice we updated this function to support Version 2 (added reason_code and properties)
+    if reason_code == 0:
+        print("Backend connected to Cloud Broker successfully!")
+        client.subscribe(topic) 
+        print(f"Auditing topic: {topic}\n")
+    else:
+        print(f"Failed to connect, return code {reason_code}")
+
+# 3. Callback: When a command is caught
+def on_message(client, userdata, msg):
+    command = msg.payload.decode('utf-8')
+    
+    # Get the exact current date and time
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # The Industrial Audit Log
+    log_entry = f"[{timestamp}] AUDIT LOG: Command '{command}' routed to Living Room Light."
+    
+    print(log_entry)
+
+# 4. Setup and Secure the Connection (Updated for API Version 2)
+# This removes the Deprecation Warning and uses the modern standard
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client.username_pw_set(user, password)
+
+# Enable strict SSL/TLS encryption for the backend
+client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
+
+client.on_connect = on_connect
+client.on_message = on_message
+
+# Start listening forever
+print("Starting Industrial Backend Logger...")
+client.connect(broker, port, 60)
+client.loop_forever()
