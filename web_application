@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #121212; color: white;}
+        button { padding: 20px 40px; font-size: 20px; margin: 10px; cursor: pointer; border-radius: 10px; border: none; }
+        #btn-on { background-color: #4CAF50; color: white; }
+        #btn-off { background-color: #f44336; color: white; }
+        #status { margin-top: 20px; font-size: 18px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <h2>Living Room Light</h2>
+    
+    <button id="btn-on" onclick="sendCommand('ON')">Turn ON</button>
+    <button id="btn-off" onclick="sendCommand('OFF')">Turn OFF</button>
+    
+    <div id="status">Connecting to Cloud...</div>
+
+    <script>
+        // 1. Cloud Broker Settings (Use the exact same ones from your C++ code)
+        const mqtt_server = "YOUR-CLUSTER-ID.hivemq.cloud";
+        const mqtt_port = 8884; // NEW: 8884 is the Secure WebSocket port for browsers
+        const mqtt_user = "farm_admin"; // Your HiveMQ Username
+        const mqtt_pass = "SecurePassword123"; // Your HiveMQ Password
+        
+        const topic = "home/living_room/light_1/command";
+
+        // Create a random Client ID for the web app
+        const clientID = "WebApp-" + Math.floor(Math.random() * 10000);
+        const client = new Paho.MQTT.Client(mqtt_server, mqtt_port, "/mqtt", clientID);
+
+        // 2. Connect to the Cloud
+        client.connect({
+            userName: mqtt_user,
+            password: mqtt_pass,
+            useSSL: true, // Secure connection
+            onSuccess: function() {
+                document.getElementById("status").innerText = "Connected to Cloud! Ready to control.";
+            },
+            onFailure: function(e) {
+                document.getElementById("status").innerText = "Connection failed: " + e.errorMessage;
+            }
+        });
+
+        // 3. The function that runs when you click a button
+        function sendCommand(command) {
+            if (client.isConnected()) {
+                const message = new Paho.MQTT.Message(command);
+                message.destinationName = topic;
+                client.send(message);
+                document.getElementById("status").innerText = "Command sent: " + command;
+            } else {
+                alert("Not connected to the cloud yet!");
+            }
+        }
+    </script>
+
+</body>
+</html>
