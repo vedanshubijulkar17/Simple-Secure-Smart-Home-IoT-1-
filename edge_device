@@ -1,0 +1,76 @@
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+
+// 1. Wi-Fi and Cloud Settings
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+const char* mqtt_server = "1095070812314ca1963ae62de6e2578d.s1.eu.hivemq.cloud"; // Add your HiveMQ URL
+const int mqtt_port = 8883; 
+const char* mqtt_user = "farm_admin"; // Add your HiveMQ Username
+const char* mqtt_pass = "SecurePassword123"; // Add your HiveMQ Password
+
+// 2. The specific topic this lightbulb is listening to
+const char* listen_topic = "home/living_room/light_1/command";
+const int LIGHT_PIN = 2; // The pin where our LED is connected
+
+WiFiClientSecure espClient;
+PubSubClient client(espClient);
+
+// 3. THE CALLBACK FUNCTION (The Reflex)
+// This runs AUTOMATICALLY every time a message arrives on our topic
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.println(topic);
+
+  // Convert the incoming payload (bytes) into a readable String
+  String message = "";
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  
+  Serial.print("Command received: ");
+  Serial.println(message);
+
+  // 4. Act upon the message
+  if (message == "ON") {
+    digitalWrite(LIGHT_PIN, HIGH); // Turn the physical light ON
+    Serial.println("Action: Light turned ON");
+  } 
+  else if (message == "OFF") {
+    digitalWrite(LIGHT_PIN, LOW); // Turn the physical light OFF
+    Serial.println("Action: Light turned OFF");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LIGHT_PIN, OUTPUT);
+  digitalWrite(LIGHT_PIN, LOW); // Ensure light is off when device boots up
+  
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println("\nWi-Fi Connected!");
+
+  // Connect to Cloud Broker
+  espClient.setInsecure(); 
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback); // Tell the ESP32 to use our reflex function
+}
+
+void loop() {
+  if (!client.connected()) {
+    Serial.print("Connecting to Cloud...");
+    if (client.connect("ESP32_LivingRoomLight", mqtt_user, mqtt_pass)) {
+      Serial.println(" Connected!");
+      // CRITICAL: The moment we connect, we MUST subscribe to our channel!
+      client.subscribe(listen_topic);
+      Serial.println("Subscribed to living room channel.");
+    } else {
+      delay(1000);
+    }
+  }
+  
+  client.loop(); // Keep checking for incoming messages
+}
